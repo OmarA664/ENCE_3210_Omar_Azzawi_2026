@@ -1,0 +1,13 @@
+Q1) This question was quite simple. i just created a for loop and it workedon my R4. 
+
+Q2) For this question I created an array and then converted degrees to radians, in a for loop where i also calculated the cosine of each value, stored in an array then printed. 
+
+Q3) For this problem I used multiple for loops first to create an array, the second to find the absolute max, and the third to find the max smaller than the first max array. I then printed. 
+
+Q4) created a for loop that runs the whole script with delays to ensure it doesnt just flash by. within the for loop if and else if loops to detect the letter and light up the corrisponding light. 
+
+Q5) created an array and make sure lights ar eoff before beginning. if the for statement reads the preditermined pattern the light turns green else it turns red. (used chat to figure out how to make it work).
+
+Q6) (wrote it as if there is a blue led but commented it out) used an interrupt, and created a void section that turns all leds off to ensure it starts off. (useed chat to help me figure out how to toggle the button and teahc me how cases worked as well as millis).
+
+Q7) mostly chatted since i had no idea how to appreoach this question. 

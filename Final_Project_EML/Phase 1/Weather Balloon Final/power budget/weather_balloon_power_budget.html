@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DemoSat — Power Budget</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Barlow:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080f;
+    --surface: #0d1117;
+    --card: #111827;
+    --border: #1c2a3a;
+    --cyan: #00e5ff;
+    --orange: #ff6b2b;
+    --green: #00e676;
+    --yellow: #ffd740;
+    --red: #ff5252;
+    --text: #e0e6f0;
+    --muted: #546e7a;
+    --dim: #263238;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    padding: 48px 40px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .wrapper { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 48px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .header-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--cyan); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 10px; opacity: 0.8; }
+  h1 { font-family: 'Orbitron', sans-serif; font-size: 38px; font-weight: 900; color: var(--text); letter-spacing: 2px; line-height: 1.1; }
+  h1 span { color: var(--cyan); }
+  .battery-display { font-family: 'Orbitron', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-bottom: 6px; }
+  .battery-cap { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 700; color: var(--yellow); }
+  .battery-cap span { font-size: 13px; color: var(--muted); font-weight: 400; }
+
+  .battery-meter-wrap { margin-bottom: 48px; }
+  .meter-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  .battery-bar-outer { width: 100%; height: 32px; background: var(--dim); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; display: flex; }
+  .bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 1px; color: #000; position: relative; transition: opacity 0.2s; }
+  .bar-segment:hover { opacity: 0.85; filter: brightness(1.15); }
+  .bar-segment:not(:last-child)::after { content: ''; position: absolute; right: 0; top: 4px; bottom: 4px; width: 1px; background: rgba(0,0,0,0.3); }
+  .seg-arduino   { background: #00b4d8; width: 24%; }
+  .seg-leds      { background: #f4a261; width: 22.5%; }
+  .seg-sd        { background: #06d6a0; width: 16%; }
+  .seg-regulator { background: #4a4e69; width: 9.6%; color: #ccc; }
+  .seg-ds18b20   { background: #a8dadc; width: 8%; }
+  .seg-bme280    { background: #e9c46a; width: 3.2%; }
+  .seg-adxl345   { background: #b5838d; width: 0.8%; }
+  .seg-unused    { background: var(--dim); flex: 1; color: var(--muted); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-top: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  .section-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 4px; color: var(--cyan); text-transform: uppercase; margin-bottom: 16px; opacity: 0.8; }
+
+  .component-table { width: 100%; border-collapse: collapse; margin-bottom: 48px; font-family: 'JetBrains Mono', monospace; }
+  .component-table thead tr { border-bottom: 1px solid var(--border); }
+  .component-table th { padding: 0 16px 12px; font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; text-align: left; }
+  .component-table th.right { text-align: right; }
+  .component-table tbody tr { border-bottom: 1px solid rgba(28,42,58,0.6); transition: background 0.15s; }
+  .component-table tbody tr:hover { background: rgba(0,229,255,0.03); }
+  .component-table td { padding: 14px 16px; font-size: 12px; vertical-align: middle; }
+  .td-right { text-align: right; }
+  .comp-name { font-size: 13px; font-weight: 600; color: var(--text); display: block; margin-bottom: 2px; }
+  .comp-sub { font-size: 10px; color: var(--muted); font-weight: 300; }
+  .rail-badge { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 9px; font-weight: 600; letter-spacing: 1px; }
+  .rail-5v  { background: rgba(0,229,255,0.12); color: var(--cyan); border: 1px solid rgba(0,229,255,0.3); }
+  .rail-33v { background: rgba(255,107,43,0.12); color: var(--orange); border: 1px solid rgba(255,107,43,0.3); }
+  .rail-9v  { background: rgba(255,215,64,0.12); color: var(--yellow); border: 1px solid rgba(255,215,64,0.3); }
+  .current-val { font-size: 14px; font-weight: 600; color: var(--text); }
+  .current-unit { font-size: 10px; color: var(--muted); margin-left: 2px; }
+  .pct-bar { display: flex; align-items: center; gap: 10px; }
+  .pct-track { flex: 1; height: 4px; background: var(--dim); border-radius: 2px; overflow: hidden; max-width: 100px; }
+  .pct-fill { height: 100%; border-radius: 2px; }
+  .pct-num { font-size: 10px; color: var(--muted); width: 36px; text-align: right; }
+  .totals-row td { padding: 16px; border-top: 1px solid var(--cyan) !important; border-bottom: none !important; }
+  .total-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+  .total-val { font-size: 20px; font-weight: 700; color: var(--cyan); font-family: 'Orbitron', sans-serif; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 48px; }
+  .summary-card { background: var(--card); border: 1px solid var(--border); padding: 22px 20px; position: relative; overflow: hidden; }
+  .summary-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .summary-card.green::before  { background: var(--green); }
+  .summary-card.yellow::before { background: var(--yellow); }
+  .summary-card.red::before    { background: var(--red); }
+  .summary-card-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .summary-card-val { font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+  .summary-card.green  .summary-card-val { color: var(--green); }
+  .summary-card.yellow .summary-card-val { color: var(--yellow); }
+  .summary-card.red    .summary-card-val { color: var(--red); }
+  .summary-card-unit { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .summary-card-note { margin-top: 10px; font-family: 'Barlow', sans-serif; font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .efficiency-section { margin-bottom: 48px; }
+  .efficiency-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .eff-card { background: var(--card); border: 1px solid var(--border); padding: 20px; }
+  .eff-card-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--cyan); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+  .eff-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .eff-row:last-child { border-bottom: none; }
+  .eff-key { color: var(--muted); }
+  .eff-val { color: var(--text); font-weight: 600; }
+  .eff-val.highlight { color: var(--yellow); }
+  .eff-val.good { color: var(--green); }
+  .eff-val.warn { color: var(--red); }
+
+  .footer { border-top: 1px solid var(--border); padding-top: 20px; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <div class="header">
+    <div>
+      <div class="header-label">// hiball demosat · power analysis · rev 3</div>
+      <h1>POWER<br><span>BUDGET</span></h1>
+    </div>
+    <div style="text-align:right;">
+      <div class="battery-display">ENERGIZER L522 · 9V LITHIUM</div>
+      <div class="battery-cap">~1,200 <span>mAh capacity</span></div>
+      <div class="battery-display" style="margin-top:6px;">RATED −40°C TO +60°C</div>
+    </div>
+  </div>
+
+  <div class="battery-meter-wrap">
+    <div class="meter-label">// current distribution — total load at 9V input</div>
+    <div class="battery-bar-outer">
+      <div class="bar-segment seg-arduino">UNO</div>
+      <div class="bar-segment seg-leds">LEDs</div>
+      <div class="bar-segment seg-sd">µSD</div>
+      <div class="bar-segment seg-regulator">REG</div>
+      <div class="bar-segment seg-ds18b20">DS18</div>
+      <div class="bar-segment seg-bme280">BME</div>
+      <div class="bar-segment seg-adxl345">AX</div>
+      <div class="bar-segment seg-unused">HEADROOM</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#00b4d8;"></div>Arduino UNO (45 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f4a261;"></div>6× LEDs (42 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#06d6a0;"></div>µSD Card (30 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4a4e69;"></div>Regulator loss (18 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a8dadc;"></div>DS18B20 (1.5 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e9c46a;"></div>BME280 (0.6 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#b5838d;"></div>ADXL345 (0.14 mA)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--dim);border:1px solid var(--border);"></div>Headroom</div>
+    </div>
+  </div>
+
+  <div class="section-title">// per-component current draw</div>
+  <table class="component-table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Rail</th>
+        <th class="right">Typ. Current</th>
+        <th class="right">Notes</th>
+        <th class="right">% of Load</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="comp-name">Arduino UNO R3</span><span class="comp-sub">ATmega328P · board overhead · onboard LEDs</span></td>
+        <td><span class="rail-badge rail-9v">9V VIN</span></td>
+        <td class="td-right"><span class="current-val">45</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">Includes power LED + USB chip</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:33%;background:#00b4d8;"></div></div><span class="pct-num">26.5%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">6× Status LEDs</span><span class="comp-sub">2× green (D3,D6) · 2× yellow (D4,D7) · 2× red (D5,D8)</span></td>
+        <td><span class="rail-badge rail-5v">5V</span></td>
+        <td class="td-right"><span class="current-val">42</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">7 mA each · 220Ω limiting</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:33%;background:#f4a261;"></div></div><span class="pct-num">24.7%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">SparkFun µSD Breakout</span><span class="comp-sub">DEV-13743 · SPI · active write cycle</span></td>
+        <td><span class="rail-badge rail-5v">5V</span></td>
+        <td class="td-right"><span class="current-val">30</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">Peak during write; ~1 mA idle</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:22%;background:#06d6a0;"></div></div><span class="pct-num">17.7%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">Regulator Heat Loss</span><span class="comp-sub">9V → 5V onboard linear reg · ~55% efficient at this load</span></td>
+        <td><span class="rail-badge rail-9v">9V VIN</span></td>
+        <td class="td-right"><span class="current-val">~18</span><span class="current-unit">mA eq.</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">Wasted as heat, not useful work</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:13%;background:#4a4e69;"></div></div><span class="pct-num">10.6%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">DS18B20</span><span class="comp-sub">1-Wire external temp · parasitic/external power</span></td>
+        <td><span class="rail-badge rail-33v">3.3V</span></td>
+        <td class="td-right"><span class="current-val">1.5</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">Active during conversion ~750ms</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:9%;background:#a8dadc;"></div></div><span class="pct-num">0.9%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">Adafruit BME280</span><span class="comp-sub">#2652 · I²C 0x77 · normal mode</span></td>
+        <td><span class="rail-badge rail-5v">5V</span></td>
+        <td class="td-right"><span class="current-val">0.6</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">&lt;1 mA active · 5µA sleep</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:3.5%;background:#e9c46a;"></div></div><span class="pct-num">0.4%</span></div></td>
+      </tr>
+      <tr>
+        <td><span class="comp-name">SparkFun ADXL345</span><span class="comp-sub">SEN-09836 · I²C 0x53 · measurement mode</span></td>
+        <td><span class="rail-badge rail-33v">3.3V</span></td>
+        <td class="td-right"><span class="current-val">0.14</span><span class="current-unit">mA</span></td>
+        <td class="td-right" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);">140µA typical · 2µA standby</td>
+        <td class="td-right"><div class="pct-bar"><div class="pct-track"><div class="pct-fill" style="width:1%;background:#b5838d;"></div></div><span class="pct-num">0.1%</span></div></td>
+      </tr>
+      <tr class="totals-row">
+        <td><span class="total-label">Total System Draw</span></td>
+        <td></td>
+        <td class="td-right"><span class="total-val">~170</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-left:4px;">mA</span></td>
+        <td></td>
+        <td class="td-right"><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">at 9V input</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="summary-grid">
+    <div class="summary-card green">
+      <div class="summary-card-label">// estimated flight time</div>
+      <div class="summary-card-val">~7</div>
+      <div class="summary-card-unit">hours</div>
+      <div class="summary-card-note">1,200 mAh ÷ 170 mA = ~7.1 hrs continuous. Typical balloon flight is 2–3 hrs — well within margin.</div>
+    </div>
+    <div class="summary-card yellow">
+      <div class="summary-card-label">// battery capacity used</div>
+      <div class="summary-card-val">~500</div>
+      <div class="summary-card-unit">mAh for 3-hr flight</div>
+      <div class="summary-card-note">~42% of total capacity consumed during a 3-hour flight. 58% headroom remaining on landing.</div>
+    </div>
+    <div class="summary-card red">
+      <div class="summary-card-label">// biggest power draw</div>
+      <div class="summary-card-val">LEDs</div>
+      <div class="summary-card-unit">42 mA · 24.7% of load</div>
+      <div class="summary-card-note">All 6 LEDs lit continuously = 42 mA. Dimming or duty-cycling LEDs would significantly extend runtime.</div>
+    </div>
+  </div>
+
+  <div class="efficiency-section">
+    <div class="section-title">// power system parameters</div>
+    <div class="efficiency-grid">
+      <div class="eff-card">
+        <div class="eff-card-title">Battery</div>
+        <div class="eff-row"><span class="eff-key">Model</span><span class="eff-val">Energizer L522</span></div>
+        <div class="eff-row"><span class="eff-key">Chemistry</span><span class="eff-val">Li/MnO₂</span></div>
+        <div class="eff-row"><span class="eff-key">Nominal Voltage</span><span class="eff-val highlight">9.0V</span></div>
+        <div class="eff-row"><span class="eff-key">Capacity @ 25mA</span><span class="eff-val">~1,200 mAh</span></div>
+        <div class="eff-row"><span class="eff-key">Min. Operating Temp</span><span class="eff-val good">−40°C</span></div>
+        <div class="eff-row"><span class="eff-key">Shelf Life</span><span class="eff-val">10 years</span></div>
+        <div class="eff-row"><span class="eff-key">Max Discharge</span><span class="eff-val">1,000 mA</span></div>
+      </div>
+      <div class="eff-card">
+        <div class="eff-card-title">Flight Runtime Estimates</div>
+        <div class="eff-row"><span class="eff-key">All LEDs on (170 mA)</span><span class="eff-val highlight">~7.1 hrs</span></div>
+        <div class="eff-row"><span class="eff-key">LEDs off (128 mA)</span><span class="eff-val good">~9.4 hrs</span></div>
+        <div class="eff-row"><span class="eff-key">Typical 3-hr flight</span><span class="eff-val good">42% used</span></div>
+        <div class="eff-row"><span class="eff-key">Regulator draw</span><span class="eff-val warn">~0.7W heat</span></div>
+        <div class="eff-row"><span class="eff-key">System efficiency</span><span class="eff-val warn">~55%</span></div>
+        <div class="eff-row"><span class="eff-key">Arduino 3.3V max</span><span class="eff-val">50 mA (ok)</span></div>
+        <div class="eff-row"><span class="eff-key">USB + 9V together</span><span class="eff-val warn">NEVER</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>HiBall DemoSat · Arduino UNO R3 Payload · Rev 3</span>
+    <span>Power Budget · 2026 · All values typical at room temperature</span>
+  </div>
+
+</div>
+</body>
+</html>

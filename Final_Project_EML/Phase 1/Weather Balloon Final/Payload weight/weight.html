@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiBall Payload Weight Budget</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; padding: 30px 20px; }
+
+  h1 { text-align: center; font-size: 1.6rem; color: #ffffff; margin-bottom: 4px; letter-spacing: 1px; }
+  .subtitle { text-align: center; color: #888; font-size: 0.85rem; margin-bottom: 30px; }
+
+  .container { max-width: 750px; margin: 0 auto; }
+
+  /* Gauge */
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
+  .gauge-bar-bg { width: 100%; height: 28px; background: #1e2230; border-radius: 14px; overflow: hidden; border: 1px solid #2a2f3f; }
+  .gauge-bar-fill { height: 100%; border-radius: 14px; transition: width 0.6s ease, background 0.4s; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 0.78rem; font-weight: 700; color: #fff; }
+  .gauge-labels { width: 100%; display: flex; justify-content: space-between; margin-top: 6px; font-size: 0.75rem; color: #666; }
+  .gauge-total { margin-top: 10px; font-size: 1.5rem; font-weight: 700; }
+  .gauge-limit { font-size: 0.82rem; color: #888; margin-top: 2px; }
+
+  /* Status badge */
+  .status-badge { display: inline-block; padding: 4px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; margin-top: 8px; }
+  .ok   { background: #0d3320; color: #4cdd8a; border: 1px solid #1a5c38; }
+  .warn { background: #3a2a00; color: #ffb830; border: 1px solid #6a4e00; }
+  .over { background: #3a0d0d; color: #ff5555; border: 1px solid #6a1a1a; }
+
+  /* Table */
+  .card { background: #161b27; border: 1px solid #2a2f3f; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+  .card-header { background: #1e2436; padding: 12px 18px; font-size: 0.78rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #7a8aaa; border-bottom: 1px solid #2a2f3f; display: flex; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: #666; text-align: left; border-bottom: 1px solid #1e2230; }
+  td { padding: 11px 16px; font-size: 0.88rem; border-bottom: 1px solid #1a1f2e; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1a2035; }
+  .weight-val { font-weight: 600; color: #a0c4ff; text-align: right; }
+  .qty-val { color: #888; text-align: center; }
+  .subtotal-val { font-weight: 700; color: #ffffff; text-align: right; }
+  .category-row td { background: #1e2436 !important; color: #7a8aaa; font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 7px 16px; }
+
+  /* Section totals */
+  .section-total td { background: #12161f !important; font-weight: 700; font-size: 0.85rem; }
+  .section-total .subtotal-val { color: #4cdd8a; }
+
+  /* Grand total row */
+  .grand-total td { background: #0d1520 !important; font-size: 1rem; font-weight: 800; border-top: 2px solid #2a2f3f; }
+  .grand-total .subtotal-val { font-size: 1.1rem; color: #ffffff; }
+
+  /* Remaining */
+  .remaining-card { background: #161b27; border: 1px solid #2a2f3f; border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .remaining-label { font-size: 0.85rem; color: #888; }
+  .remaining-value { font-size: 1.4rem; font-weight: 800; color: #4cdd8a; }
+  .remaining-note { font-size: 0.75rem; color: #555; margin-top: 3px; }
+
+  .limit-line { border: none; border-top: 2px dashed #ff5555; margin: 0; opacity: 0.5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚖ PAYLOAD WEIGHT BUDGET</h1>
+  <p class="subtitle">HiBall / DemoSat — Rev 3 Design</p>
+
+  <!-- Gauge -->
+  <div class="gauge-wrap">
+    <div class="gauge-bar-bg" style="width:100%">
+      <div class="gauge-bar-fill" id="gaugeFill" style="width:0%"></div>
+    </div>
+    <div class="gauge-labels"><span>0 g</span><span>100 g</span><span>200 g LIMIT</span></div>
+    <div class="gauge-total" id="gaugeTotal">— g</div>
+    <div class="gauge-limit">of 200 g maximum</div>
+    <div class="status-badge" id="statusBadge">Calculating...</div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header">
+      <span>Component</span>
+      <span>Weight (g)</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th class="qty-val">Qty</th>
+          <th>Unit (g)</th>
+          <th>Total (g)</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Remaining -->
+  <div class="remaining-card">
+    <div>
+      <div class="remaining-label">REMAINING BUDGET</div>
+      <div class="remaining-note">Available for enclosure, wiring, foam, fasteners</div>
+    </div>
+    <div style="text-align:right">
+      <div class="remaining-value" id="remainingVal">—</div>
+      <div class="remaining-note" id="remainingPct">— of 200 g</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const components = [
+  { category: "Microcontroller" },
+  { name: "Arduino UNO R3",               qty: 1, unit: 25.0 },
+
+  { category: "Power" },
+  { name: "9V Energizer L522 Lithium",    qty: 1, unit: 34.0 },
+  { name: "9V Snap Connector",            qty: 1, unit: 3.5  },
+  { name: "SPDT Slide Switch",            qty: 1, unit: 1.5  },
+
+  { category: "Sensors" },
+  { name: "Adafruit BME280 Breakout",     qty: 1, unit: 3.0  },
+  { name: "SparkFun ADXL345 Breakout",    qty: 1, unit: 3.5  },
+  { name: "DS18B20 TO-92 + wires",        qty: 1, unit: 2.0  },
+
+  { category: "Storage" },
+  { name: "SparkFun µSD Breakout DEV-13743", qty: 1, unit: 3.0 },
+  { name: "MicroSD Card (8GB)",           qty: 1, unit: 0.5  },
+
+  { category: "PCB & Passives" },
+  { name: "Custom PCB (JLCPCB, 2-layer)", qty: 1, unit: 15.0 },
+  { name: "Resistors (10× ~0.1g each)",  qty: 1, unit: 1.0  },
+  { name: "100nF Bypass Caps (4×)",      qty: 1, unit: 0.5  },
+  { name: "LEDs 5mm (6×)",               qty: 1, unit: 1.8  },
+  { name: "Pin Headers / Connectors",    qty: 1, unit: 4.0  },
+];
+
+const LIMIT = 200;
+const tbody = document.getElementById('tableBody');
+let grandTotal = 0;
+
+components.forEach(item => {
+  if (item.category) {
+    const row = document.createElement('tr');
+    row.className = 'category-row';
+    row.innerHTML = `<td colspan="4">${item.category}</td>`;
+    tbody.appendChild(row);
+    return;
+  }
+  const subtotal = item.qty * item.unit;
+  grandTotal += subtotal;
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td>${item.name}</td>
+    <td class="qty-val">${item.qty}</td>
+    <td class="weight-val">${item.unit.toFixed(1)}</td>
+    <td class="subtotal-val">${subtotal.toFixed(1)}</td>
+  `;
+  tbody.appendChild(row);
+});
+
+// Grand total row
+const gtRow = document.createElement('tr');
+gtRow.className = 'grand-total';
+gtRow.innerHTML = `
+  <td colspan="3"><strong>ELECTRONICS TOTAL</strong></td>
+  <td class="subtotal-val">${grandTotal.toFixed(1)} g</td>
+`;
+tbody.appendChild(gtRow);
+
+// Update gauge
+const pct = Math.min((grandTotal / LIMIT) * 100, 100);
+const fill = document.getElementById('gaugeFill');
+const remaining = LIMIT - grandTotal;
+const remainingPct = ((remaining / LIMIT) * 100).toFixed(0);
+
+setTimeout(() => {
+  fill.style.width = pct + '%';
+  fill.textContent = grandTotal.toFixed(1) + 'g';
+  if (pct < 70) {
+    fill.style.background = 'linear-gradient(90deg, #1a6e3f, #4cdd8a)';
+  } else if (pct < 90) {
+    fill.style.background = 'linear-gradient(90deg, #6e4a00, #ffb830)';
+  } else {
+    fill.style.background = 'linear-gradient(90deg, #6e1a1a, #ff5555)';
+  }
+}, 100);
+
+document.getElementById('gaugeTotal').textContent = grandTotal.toFixed(1) + ' g';
+document.getElementById('remainingVal').textContent = remaining.toFixed(1) + ' g';
+document.getElementById('remainingPct').textContent = remainingPct + '% of budget remaining';
+
+const badge = document.getElementById('statusBadge');
+if (pct < 70) {
+  badge.className = 'status-badge ok';
+  badge.textContent = '✓ WELL WITHIN LIMIT';
+} else if (pct < 90) {
+  badge.className = 'status-badge warn';
+  badge.textContent = '⚠ APPROACHING LIMIT';
+} else if (pct <= 100) {
+  badge.className = 'status-badge warn';
+  badge.textContent = '⚠ CLOSE TO LIMIT';
+} else {
+  badge.className = 'status-badge over';
+  badge.textContent = '✗ OVER LIMIT';
+}
+</script>
+</body>
+</html>
